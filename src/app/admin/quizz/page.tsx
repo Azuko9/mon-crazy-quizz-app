@@ -22,7 +22,7 @@ export interface Round {
 // Mets ici ton vrai project id Supabase
 const mediaBaseUrl = "https://dymlzeksephksntjgtms.supabase.co/storage/v1/object/public/medias/";
 
-// utils/generateJoinCode.ts
+
 
 export default function AdminQuizListPage() {
     const [quizzes, setQuizzes] = useState<Quiz[]>([]);
