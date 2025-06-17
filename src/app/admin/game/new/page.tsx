@@ -8,26 +8,32 @@ export default function NewGamePage() {
     const searchParams = useSearchParams();
     const quiz_id = searchParams.get("quiz_id");
 
-    const [creating, setCreating] = useState(false);
+    const [creating, setCreating] = useState<boolean>(false);
 
     useEffect(() => {
         if (!quiz_id) router.push("/admin/quizz");
     }, [quiz_id, router]);
 
     async function handleCreateGame() {
+        if (!quiz_id) return;
         setCreating(true);
         const { data: game, error } = await supabase.from("games")
             .insert([{ quiz_id, status: "waiting", current_round_index: 0, current_question_index: -1, created_at: new Date() }])
-            .select().single();
+            .select()
+            .single();
         setCreating(false);
-        if (error) alert("Erreur : " + error.message);
-        else router.push(`/admin/game/${game.id}`);
+        if (error) {
+            alert("Erreur : " + error.message);
+        } else if (game) {
+            router.push(`/admin/game/${game.id}`);
+        }
     }
 
     return (
         <main className="p-12 text-center">
             <h1 className="text-2xl font-bold mb-4">Lancer une partie</h1>
-            <button className="bg-green-600 text-white px-6 py-3 rounded text-lg font-bold"
+            <button
+                className="bg-green-600 text-white px-6 py-3 rounded text-lg font-bold"
                 onClick={handleCreateGame}
                 disabled={creating}
             >
@@ -36,5 +42,3 @@ export default function NewGamePage() {
         </main>
     );
 }
-
-// This page allows the admin to create a new game for a specific quiz.
