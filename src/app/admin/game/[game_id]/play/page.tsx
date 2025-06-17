@@ -4,28 +4,49 @@ import { useEffect, useState } from "react";
 import QRCode from "react-qr-code";
 import { supabase } from "@/utils/supabaseClient";
 
+interface Player {
+    id: string;
+    pseudo: string;
+    game_id: string;
+    // Ajoute les champs réels de ta table 'players' si besoin
+}
+
+interface Game {
+    id: string;
+    status: string;
+    started_at?: string; // ou Date si tu préfères
+    // Ajoute les champs réels de ta table 'games' si besoin
+}
+
 export default function GameAdminLobby() {
-    const { game_id } = useParams();
+    const { game_id } = useParams<{ game_id: string }>();
     const router = useRouter();
-    const [players, setPlayers] = useState<any[]>([]);
+    const [players, setPlayers] = useState<Player[]>([]);
     const [loading, setLoading] = useState(true);
-    const [game, setGame] = useState<any>(null);
+    const [game, setGame] = useState<Game | null>(null);
 
     // Players en live
     useEffect(() => {
         let subscription: any;
         async function fetchPlayers() {
             setLoading(true);
-            const { data } = await supabase.from("players").select("*").eq("game_id", game_id);
-            setPlayers(data || []);
+            const { data } = await supabase
+                .from("players")
+                .select("*")
+                .eq("game_id", game_id);
+            setPlayers((data as Player[]) || []);
             setLoading(false);
             subscription = supabase
-                .channel('players-lobby')
+                .channel("players-lobby")
                 .on(
-                    'postgres_changes',
-                    { event: '*', schema: 'public', table: 'players', filter: `game_id=eq.${game_id}` },
+                    "postgres_changes",
+                    { event: "*", schema: "public", table: "players", filter: `game_id=eq.${game_id}` },
                     () => {
-                        supabase.from("players").select("*").eq("game_id", game_id).then(({ data }) => setPlayers(data || []));
+                        supabase
+                            .from("players")
+                            .select("*")
+                            .eq("game_id", game_id)
+                            .then(({ data }) => setPlayers((data as Player[]) || []));
                     }
                 )
                 .subscribe();
@@ -38,15 +59,19 @@ export default function GameAdminLobby() {
     useEffect(() => {
         let sub: any;
         async function fetchGame() {
-            const { data } = await supabase.from("games").select("*").eq("id", game_id).single();
-            setGame(data || null);
+            const { data } = await supabase
+                .from("games")
+                .select("*")
+                .eq("id", game_id)
+                .single();
+            setGame((data as Game) || null);
             sub = supabase
-                .channel('games-lobby')
+                .channel("games-lobby")
                 .on(
-                    'postgres_changes',
-                    { event: '*', schema: 'public', table: 'games', filter: `id=eq.${game_id}` },
-                    payload => {
-                        if (payload.new) setGame(payload.new);
+                    "postgres_changes",
+                    { event: "*", schema: "public", table: "games", filter: `id=eq.${game_id}` },
+                    (payload) => {
+                        if (payload.new) setGame(payload.new as Game);
                     }
                 )
                 .subscribe();
@@ -63,9 +88,10 @@ export default function GameAdminLobby() {
     }, [game?.status, game_id, router]);
 
     // Génère l'URL à scanner (joueur)
-    const joinUrl = typeof window !== "undefined"
-        ? `${window.location.origin}/game/join/${game_id}`
-        : `https://tondomaine.com/game/join/${game_id}`;
+    const joinUrl =
+        typeof window !== "undefined"
+            ? `${window.location.origin}/game/join/${game_id}`
+            : `https://tondomaine.com/game/join/${game_id}`;
 
     return (
         <main className="p-8 max-w-xl mx-auto text-center">
@@ -76,14 +102,23 @@ export default function GameAdminLobby() {
             </div>
             <div className="mb-6 text-sm break-all text-gray-700">{joinUrl}</div>
             <h2 className="font-bold mb-2">Joueurs connectés :</h2>
-            {loading ? <div>Chargement...</div> : (
-                <ul className="mb-4">{players.map(p => <li key={p.id}>{p.pseudo}</li>)}</ul>
+            {loading ? (
+                <div>Chargement...</div>
+            ) : (
+                <ul className="mb-4">
+                    {players.map((p) => (
+                        <li key={p.id}>{p.pseudo}</li>
+                    ))}
+                </ul>
             )}
             <button
                 className="bg-green-600 text-white px-6 py-3 rounded-lg text-lg font-bold mt-4"
                 disabled={players.length < 2}
                 onClick={async () => {
-                    await supabase.from("games").update({ status: "playing", started_at: new Date() }).eq("id", game_id);
+                    await supabase
+                        .from("games")
+                        .update({ status: "playing", started_at: new Date() })
+                        .eq("id", game_id);
                 }}
             >
                 Démarrer la partie
