@@ -3,6 +3,22 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
 
+export interface Quiz {
+    id: string;
+    title: string;
+    comment?: string;
+    media_url?: string;
+    created_at: string;
+}
+
+export interface Round {
+    id: string;
+    quiz_id: string;
+    title: string;
+    round_number: number;
+    media_url?: string;
+}
+
 // Mets ici ton vrai project id Supabase
 const mediaBaseUrl = "https://dymlzeksephksntjgtms.supabase.co/storage/v1/object/public/medias/";
 
@@ -18,8 +34,8 @@ export function generateJoinCode(length = 6) {
 
 
 export default function AdminQuizListPage() {
-    const [quizzes, setQuizzes] = useState<any[]>([]);
-    const [roundsByQuiz, setRoundsByQuiz] = useState<{ [quizId: string]: any[] }>({});
+    const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+    const [roundsByQuiz, setRoundsByQuiz] = useState<{ [quizId: string]: Round[] }>({});
     const [loading, setLoading] = useState(true);
     const router = useRouter();
 
@@ -29,11 +45,11 @@ export default function AdminQuizListPage() {
             setLoading(true);
             const { data: quizzData } = await supabase.from("quizz").select("*").order("created_at", { ascending: false });
             setQuizzes(quizzData || []);
-            const ids = (quizzData || []).map((q: any) => q.id);
+            const ids = (quizzData || []).map((q: Quiz) => q.id);
             if (ids.length > 0) {
                 const { data: roundsData } = await supabase.from("rounds").select("*").in("quiz_id", ids).order("round_number");
-                const byQuiz: { [quizId: string]: any[] } = {};
-                (roundsData || []).forEach((r: any) => {
+                const byQuiz: { [quizId: string]: Round[] } = {};
+                (roundsData || []).forEach((r: Round) => {
                     byQuiz[r.quiz_id] = byQuiz[r.quiz_id] || [];
                     byQuiz[r.quiz_id].push(r);
                 });
@@ -49,14 +65,14 @@ export default function AdminQuizListPage() {
 
         const { data: rounds } = await supabase.from("rounds").select("id").eq("quiz_id", quiz_id);
         if (rounds && rounds.length > 0) {
-            const roundIds = rounds.map((r: any) => r.id);
+            const roundIds = rounds.map((r: { id: string }) => r.id);
             await supabase.from("questions").delete().in("round_id", roundIds);
         }
         await supabase.from("rounds").delete().eq("quiz_id", quiz_id);
 
         const { data: games } = await supabase.from("games").select("id").eq("quiz_id", quiz_id);
         if (games && games.length > 0) {
-            const gameIds = games.map((g: any) => g.id);
+            const gameIds = games.map((g: { id: string }) => g.id);
             await supabase.from("players").delete().in("game_id", gameIds);
             await supabase.from("answers").delete().in("game_id", gameIds);
             await supabase.from("games").delete().in("id", gameIds);
@@ -134,7 +150,7 @@ export default function AdminQuizListPage() {
                                 </div>
                                 {/* Liste des manches avec illustration */}
                                 <ul className="pl-3">
-                                    {rounds.map((r: any) => {
+                                    {rounds.map((r) => {
                                         const roundIllu = r.media_url
                                             ? (r.media_url.startsWith("http") ? r.media_url : mediaBaseUrl + r.media_url)
                                             : null;
