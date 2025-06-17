@@ -23,15 +23,6 @@ export interface Round {
 const mediaBaseUrl = "https://dymlzeksephksntjgtms.supabase.co/storage/v1/object/public/medias/";
 
 // utils/generateJoinCode.ts
-export function generateJoinCode(length = 6) {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    let code = "";
-    for (let i = 0; i < length; i++) {
-        code += chars[Math.floor(Math.random() * chars.length)];
-    }
-    return code;
-}
-
 
 export default function AdminQuizListPage() {
     const [quizzes, setQuizzes] = useState<Quiz[]>([]);
