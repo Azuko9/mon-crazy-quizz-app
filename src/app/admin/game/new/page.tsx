@@ -36,3 +36,5 @@ export default function NewGamePage() {
         </main>
     );
 }
+
+// This page allows the admin to create a new game for a specific quiz.
