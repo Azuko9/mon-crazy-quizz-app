@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
+import { useSession } from "@supabase/auth-helpers-react";
 
 export interface Quiz {
     id: string;
@@ -10,7 +11,6 @@ export interface Quiz {
     media_url?: string;
     created_at: string;
 }
-
 export interface Round {
     id: string;
     quiz_id: string;
@@ -19,26 +19,39 @@ export interface Round {
     media_url?: string;
 }
 
-// Mets ici ton vrai project id Supabase
 const mediaBaseUrl = "https://dymlzeksephksntjgtms.supabase.co/storage/v1/object/public/medias/";
-
-
 
 export default function AdminQuizListPage() {
     const [quizzes, setQuizzes] = useState<Quiz[]>([]);
     const [roundsByQuiz, setRoundsByQuiz] = useState<{ [quizId: string]: Round[] }>({});
     const [loading, setLoading] = useState(true);
     const router = useRouter();
+    const session = useSession();
 
+    // 1. Sécurité (redirige login si pas loggé)
     useEffect(() => {
-        fetchQuizzes();
-        async function fetchQuizzes() {
+        if (session === null) {
+            router.replace("/login");
+        }
+    }, [session, router]);
+
+    // 2. Fetch quiz et rounds, uniquement si session ok
+    useEffect(() => {
+        if (!session) return;
+        (async function fetchQuizzes() {
             setLoading(true);
-            const { data: quizzData } = await supabase.from("quizz").select("*").order("created_at", { ascending: false });
+            const { data: quizzData } = await supabase
+                .from("quizz")
+                .select("*")
+                .order("created_at", { ascending: false });
             setQuizzes(quizzData || []);
             const ids = (quizzData || []).map((q: Quiz) => q.id);
             if (ids.length > 0) {
-                const { data: roundsData } = await supabase.from("rounds").select("*").in("quiz_id", ids).order("round_number");
+                const { data: roundsData } = await supabase
+                    .from("rounds")
+                    .select("*")
+                    .in("quiz_id", ids)
+                    .order("round_number");
                 const byQuiz: { [quizId: string]: Round[] } = {};
                 (roundsData || []).forEach((r: Round) => {
                     byQuiz[r.quiz_id] = byQuiz[r.quiz_id] || [];
@@ -47,10 +60,10 @@ export default function AdminQuizListPage() {
                 setRoundsByQuiz(byQuiz);
             }
             setLoading(false);
-        }
-    }, []);
+        })();
+    }, [session]);
 
-    // Suppression cascade identique
+    // 3. Suppression en cascade
     async function handleDeleteQuiz(quiz_id: string) {
         if (!window.confirm("Supprimer ce quiz, toutes ses manches, questions et parties liées ?")) return;
 
@@ -76,16 +89,46 @@ export default function AdminQuizListPage() {
         setRoundsByQuiz(newRounds);
     }
 
+    // 4. Déconnexion admin
+    async function handleLogout() {
+        await supabase.auth.signOut();
+        router.replace("/login");
+    }
+
+    if (session === undefined) {
+        return <div className="p-10 text-center">Chargement de la session…</div>;
+    }
+    if (session === null) {
+        return <div className="p-10 text-center text-red-500">Redirection…</div>;
+    }
+
     return (
         <main className="p-10 max-w-2xl mx-auto">
-            <h1 className="text-3xl font-bold mb-6">Gestion des quiz</h1>
-            <button className="bg-blue-700 text-white px-6 py-2 rounded mr-3 mb-6" onClick={() => router.push("/admin/quizz/new")}>
+            <div className="flex justify-between items-center mb-6">
+                <h1 className="text-3xl font-bold">Gestion des quiz</h1>
+                <div className="flex flex-col items-end">
+                    <span className="text-sm text-gray-700 mb-1">
+                        {session.user.email}
+                    </span>
+                    <button
+                        onClick={handleLogout}
+                        className="text-red-600 underline text-sm hover:text-red-800"
+                    >
+                        Déconnexion
+                    </button>
+                </div>
+            </div>
+            <button
+                className="bg-blue-700 text-white px-6 py-2 rounded mr-3 mb-6"
+                onClick={() => router.push("/admin/quizz/new")}
+            >
                 + Créer un nouveau quiz
             </button>
-            {loading ? <div>Chargement…</div> : (
+            {loading ? (
+                <div>Chargement…</div>
+            ) : (
                 <ul>
                     {quizzes.map(q => {
-                        // Illustration quiz
                         const quizIllu = q.media_url
                             ? (q.media_url.startsWith("http") ? q.media_url : mediaBaseUrl + q.media_url)
                             : null;
@@ -120,7 +163,6 @@ export default function AdminQuizListPage() {
                                         <button
                                             className="bg-blue-600 text-white px-3 py-1 rounded"
                                             onClick={async () => {
-                                                // Crée un nouveau game lié à ce quiz
                                                 const { data, error } = await supabase
                                                     .from("games")
                                                     .insert([{ quiz_id: q.id, status: "waiting", created_at: new Date() }])
@@ -130,13 +172,11 @@ export default function AdminQuizListPage() {
                                                     alert("Erreur création partie : " + error.message);
                                                     return;
                                                 }
-                                                // Redirige vers la salle d’attente admin pour ce game
                                                 router.push(`/game/admin/${data.id}`);
                                             }}
                                         >
                                             Lancer ce quiz
                                         </button>
-
                                     </div>
                                 </div>
                                 {/* Liste des manches avec illustration */}
@@ -154,7 +194,8 @@ export default function AdminQuizListPage() {
                                                         <span>—</span>
                                                     </div>
                                                 )}
-                                                <span className="font-semibold">Manche {r.round_number} :</span> <span className="ml-1">{r.title}</span>
+                                                <span className="font-semibold">Manche {r.round_number} :</span>
+                                                <span className="ml-1">{r.title}</span>
                                             </li>
                                         );
                                     })}
@@ -167,5 +208,7 @@ export default function AdminQuizListPage() {
         </main>
     );
 }
+
+
 
 
