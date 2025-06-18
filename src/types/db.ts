@@ -1,15 +1,21 @@
-// src/types/db.ts
-
-export interface Player {
+export type UserRow = {
   id: string;
-  pseudo: string;
-  game_id: string;
-  // Ajoute ici tous les champs utiles de ta table 'players'
+  email: string;
+  name: string | null;
+  avatar_url: string | null;
+  role: "user" | "admin";
+  created_at: string;
+};
+
+export interface Database {
+  public: {
+    Tables: {
+      users: {
+        Row: UserRow;
+        Insert: Omit<UserRow, "created_at">;
+        Update: Partial<UserRow>;
+      };
+    };
+  };
 }
 
-export interface Game {
-  id: string;
-  status: "waiting" | "playing" | "finished";
-  started_at?: string; // ou Date si tu préfères
-  // Ajoute ici tous les champs utiles de ta table 'games'
-}

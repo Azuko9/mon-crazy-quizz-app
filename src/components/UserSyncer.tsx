@@ -5,3 +5,4 @@ export default function UserSyncer() {
     useSyncUserToDB();
     return null;
 }
+
